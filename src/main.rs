@@ -27,13 +27,16 @@ fn get_dir_listing(path_buf: &std::path::PathBuf) -> Vec<std::path::PathBuf> {
 
     // remove the parent directory from the paths, so the diffs don't show everything as different
     for maybe_path in maybe_paths {
-        let path = maybe_path
-            .unwrap()
-            .strip_prefix(path_buf)
-            .unwrap()
-            .to_path_buf();
+        let path = maybe_path.unwrap();
 
-        paths.push(path);
+        // if the path doesn't have any parent directories, then just add it
+        if path.components().count() == 1 {
+            paths.push(path);
+            continue;
+        }
+
+        // otherwise remove the parent directory
+        paths.push(path.strip_prefix(path_buf).unwrap().to_path_buf());
     }
 
     paths
