@@ -17,10 +17,11 @@ fn glob_pattern_from_path_buf(path_buf: &std::path::PathBuf) -> String {
     format!("{}{}", path_buf.as_path().to_str().unwrap(), "/**/*")
 }
 
-fn get_dir_listing(path_buf: &std::path::PathBuf) -> Vec<std::path::PathBuf> {
+fn get_dir_listing(dir_path: &std::path::PathBuf) -> Vec<std::path::PathBuf> {
     // Return a full recursive directory listing
+    let absolute_dir_path = std::fs::canonicalize(dir_path).unwrap();
 
-    let glob_pattern = glob_pattern_from_path_buf(path_buf);
+    let glob_pattern = glob_pattern_from_path_buf(&absolute_dir_path);
 
     let maybe_paths = glob(&glob_pattern).expect("Failed to read glob pattern");
 
@@ -37,7 +38,7 @@ fn get_dir_listing(path_buf: &std::path::PathBuf) -> Vec<std::path::PathBuf> {
         }
 
         // otherwise remove the parent directory
-        paths.push(path.strip_prefix(path_buf).unwrap().to_path_buf());
+        paths.push(path.strip_prefix(&absolute_dir_path).unwrap().to_path_buf());
     }
 
     paths
