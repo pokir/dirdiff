@@ -71,11 +71,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // error if directories do not exist
     if !args.source_dir.exists() {
-        return Err("source directory does not exist".into());
+        return Err(format!(
+            "source directory {} does not exist",
+            args.source_dir.display()
+        )
+        .into());
     }
 
     if !args.target_dir.exists() {
-        return Err("target directory does not exist".into());
+        return Err(format!(
+            "target directory {} does not exist",
+            args.target_dir.display()
+        )
+        .into());
     }
 
     let source_dir_listing = get_dir_listing(&args.source_dir);
