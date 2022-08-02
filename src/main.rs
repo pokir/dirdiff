@@ -1,4 +1,5 @@
 use clap::Parser;
+use colored::Colorize;
 use glob::glob;
 
 #[derive(Parser)]
@@ -58,9 +59,9 @@ fn dir_listing_to_string(dir_listing: Vec<std::path::PathBuf>) -> String {
 fn print_dir_diff(dir_diff: &Vec<diff::Result<&str>>) {
     for diff_fragment in dir_diff {
         match diff_fragment {
-            diff::Result::Left(path) => println!("- {}", path),
+            diff::Result::Left(path) => println!("{} {}", "-".red(), path.red()),
             diff::Result::Both(path, _) => println!(" {}", path),
-            diff::Result::Right(path) => println!("+ {}", path),
+            diff::Result::Right(path) => println!("{} {}", "+".green(), path.green()),
         }
     }
 }
