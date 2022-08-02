@@ -49,6 +49,7 @@ fn dir_listing_to_string(dir_listing: &Vec<std::path::PathBuf>) -> String {
 
     let mut string = String::new();
 
+    // put each path on a new line
     for path in dir_listing {
         string.push_str(path.to_str().unwrap());
         string.push_str("\n");
