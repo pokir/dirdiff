@@ -66,8 +66,17 @@ fn print_dir_diff(dir_diff: &Vec<diff::Result<&str>>) {
     }
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = CliArgs::parse();
+
+    // error if directories do not exist
+    if !args.source_dir.exists() {
+        return Err("source directory does not exist".into());
+    }
+
+    if !args.target_dir.exists() {
+        return Err("target directory does not exist".into());
+    }
 
     let source_dir_listing = get_dir_listing(&args.source_dir);
     let target_dir_listing = get_dir_listing(&args.target_dir);
@@ -78,4 +87,6 @@ fn main() {
     let dir_diff = diff::lines(&source_dir_listing_string, &target_dir_listing_string);
 
     print_dir_diff(&dir_diff);
+
+    Ok(())
 }
