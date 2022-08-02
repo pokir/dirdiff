@@ -27,8 +27,12 @@ fn get_dir_listing(path_buf: &std::path::PathBuf) -> Vec<std::path::PathBuf> {
 
     // remove the parent directory from the paths, so the diffs don't show everything as different
     for maybe_path in maybe_paths {
-        // TODO: use strip_prefix instead (see issue #1)
-        let path: std::path::PathBuf = maybe_path.unwrap().components().skip(1).collect();
+        let path = maybe_path
+            .unwrap()
+            .strip_prefix(path_buf)
+            .unwrap()
+            .to_path_buf();
+
         paths.push(path);
     }
 
