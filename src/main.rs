@@ -29,7 +29,14 @@ fn get_dir_listing(dir_path: &std::path::PathBuf) -> Vec<std::path::PathBuf> {
 
     // remove the parent directory from the paths, so the diffs don't show everything as different
     for maybe_path in maybe_paths {
-        let path = maybe_path.unwrap();
+        let path = match maybe_path {
+            Ok(p) => p,
+            Err(e) => {
+                // print the error if it doesn't have permission to read the dir, or other errors
+                eprintln!("{}", e);
+                continue;
+            }
+        };
 
         // if the path doesn't have any parent directories, then just add it
         if path.components().count() == 1 {
