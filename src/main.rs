@@ -43,7 +43,7 @@ fn get_dir_listing(path_buf: &std::path::PathBuf) -> Vec<std::path::PathBuf> {
     paths
 }
 
-fn dir_listing_to_string(dir_listing: Vec<std::path::PathBuf>) -> String {
+fn dir_listing_to_string(dir_listing: &Vec<std::path::PathBuf>) -> String {
     // Return the directory listing in string form
 
     let mut string = String::new();
@@ -72,8 +72,8 @@ fn main() {
     let source_dir_listing = get_dir_listing(&args.source_dir);
     let target_dir_listing = get_dir_listing(&args.target_dir);
 
-    let source_dir_listing_string = dir_listing_to_string(source_dir_listing);
-    let target_dir_listing_string = dir_listing_to_string(target_dir_listing);
+    let source_dir_listing_string = dir_listing_to_string(&source_dir_listing);
+    let target_dir_listing_string = dir_listing_to_string(&target_dir_listing);
 
     let dir_diff = diff::lines(&source_dir_listing_string, &target_dir_listing_string);
 
