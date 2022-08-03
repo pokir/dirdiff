@@ -38,7 +38,6 @@ fn get_dir_listing(dir_path: &std::path::PathBuf, depth: &Option<u8>) -> Vec<std
     let absolute_dir_path = std::fs::canonicalize(dir_path).unwrap();
 
     let glob_pattern = glob_pattern_from_path_buf(&absolute_dir_path, depth);
-    println!("{}", glob_pattern);
 
     let maybe_paths = glob(&glob_pattern).expect("Failed to read glob pattern");
 
