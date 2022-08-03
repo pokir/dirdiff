@@ -8,6 +8,8 @@ struct CliArgs {
     source_dir: std::path::PathBuf,
     #[clap(parse(from_os_str))]
     target_dir: std::path::PathBuf,
+    #[clap(short, long)]
+    quiet: bool,
 }
 
 fn glob_pattern_from_path_buf(path_buf: &std::path::PathBuf) -> String {
@@ -65,11 +67,15 @@ fn dir_listing_to_string(dir_listing: &Vec<std::path::PathBuf>) -> String {
     string
 }
 
-fn print_dir_diff(dir_diff: &Vec<diff::Result<&str>>) {
+fn print_dir_diff(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: &bool) {
     for diff_fragment in dir_diff {
         match diff_fragment {
             diff::Result::Left(path) => println!("{} {}", "-".red(), path.red()),
-            diff::Result::Both(path, _) => println!(" {}", path),
+            diff::Result::Both(path, _) => {
+                if !*hide_similarities {
+                    println!(" {}", path)
+                }
+            }
             diff::Result::Right(path) => println!("{} {}", "+".green(), path.green()),
         }
     }
@@ -111,7 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let dir_diff = diff::lines(&source_dir_listing_string, &target_dir_listing_string);
 
-    print_dir_diff(&dir_diff);
+    print_dir_diff(&dir_diff, &args.quiet);
 
     Ok(())
 }
