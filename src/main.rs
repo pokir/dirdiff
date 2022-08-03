@@ -10,20 +10,35 @@ struct CliArgs {
     target_dir: std::path::PathBuf,
     #[clap(short, long)]
     quiet: bool,
+    #[clap(short, long)]
+    depth: Option<u8>,
 }
 
-fn glob_pattern_from_path_buf(path_buf: &std::path::PathBuf) -> String {
+fn glob_pattern_from_path_buf(path_buf: &std::path::PathBuf, depth: &Option<u8>) -> String {
     // Return a glob pattern for every file in a directory (recursively) from a PathBuf, assumed to
     // be a directory
 
-    format!("{}{}", path_buf.as_path().to_str().unwrap(), "/**/*")
+    match *depth {
+        None => format!("{}{}", path_buf.as_path().to_str().unwrap(), "/**/*"),
+        Some(d) => {
+            let mut output = String::from(path_buf.as_path().to_str().unwrap());
+
+            for _ in 0..d {
+                output.push_str("/*");
+            }
+
+            output
+        }
+    }
 }
 
-fn get_dir_listing(dir_path: &std::path::PathBuf) -> Vec<std::path::PathBuf> {
+fn get_dir_listing(dir_path: &std::path::PathBuf, depth: &Option<u8>) -> Vec<std::path::PathBuf> {
     // Return a full recursive directory listing
+
     let absolute_dir_path = std::fs::canonicalize(dir_path).unwrap();
 
-    let glob_pattern = glob_pattern_from_path_buf(&absolute_dir_path);
+    let glob_pattern = glob_pattern_from_path_buf(&absolute_dir_path, depth);
+    println!("{}", glob_pattern);
 
     let maybe_paths = glob(&glob_pattern).expect("Failed to read glob pattern");
 
@@ -109,8 +124,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // error if directories do not exist
     check_cli_args(&args)?;
 
-    let source_dir_listing = get_dir_listing(&args.source_dir);
-    let target_dir_listing = get_dir_listing(&args.target_dir);
+    let source_dir_listing = get_dir_listing(&args.source_dir, &args.depth);
+    let target_dir_listing = get_dir_listing(&args.target_dir, &args.depth);
 
     let source_dir_listing_string = dir_listing_to_string(&source_dir_listing);
     let target_dir_listing_string = dir_listing_to_string(&target_dir_listing);
