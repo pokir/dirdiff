@@ -15,3 +15,9 @@ cargo install --git https://github.com/pokir/dirdiff
 ```sh
 dirdiff dir1 dir2
 ```
+
+Get more options with:
+
+```
+dirdiff --help
+```
