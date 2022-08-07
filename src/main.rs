@@ -109,6 +109,29 @@ fn print_dir_diff(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: bool, c
     }
 }
 
+fn print_diff_summary(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: bool) {
+    let mut num_removed = 0;
+    let mut num_similar = 0;
+    let mut num_added = 0;
+
+    for diff_fragment in dir_diff {
+        match diff_fragment {
+            diff::Result::Left(_) => num_removed += 1,
+            diff::Result::Both(_, _) => num_similar += 1,
+            diff::Result::Right(_) => num_added += 1,
+        }
+    }
+
+    if hide_similarities {
+        println!("{} removed, {} added", num_removed, num_added);
+    } else {
+        println!(
+            "{} similar, {} removed, {} added",
+            num_similar, num_removed, num_added
+        );
+    }
+}
+
 fn check_cli_args(args: &CliArgs) -> Result<(), Box<dyn std::error::Error>> {
     // check if paths exist
     if !args.source_dir.exists() {
@@ -146,6 +169,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dir_diff = diff::lines(&source_dir_listing_string, &target_dir_listing_string);
 
     print_dir_diff(&dir_diff, args.quiet, !args.no_color);
+    print_diff_summary(&dir_diff, args.quiet);
 
     Ok(())
 }
