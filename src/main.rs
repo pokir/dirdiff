@@ -72,10 +72,12 @@ fn dir_listing_to_string(dir_listing: &Vec<std::path::PathBuf>) -> String {
 
     let mut string = String::new();
 
-    // put each path on a new line
-    for path in dir_listing {
-        string.push_str(path.to_str().unwrap());
+    // put each path on a new line, making sure there is no trailing "\n" at the end
+    string.push_str(dir_listing[0].to_str().unwrap());
+
+    for i in 1..dir_listing.len() {
         string.push_str("\n");
+        string.push_str(dir_listing[i].to_str().unwrap());
     }
 
     string
