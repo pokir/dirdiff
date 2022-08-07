@@ -14,11 +14,11 @@ struct CliArgs {
     depth: Option<u8>,
 }
 
-fn glob_pattern_from_path_buf(path_buf: &std::path::PathBuf, depth: &Option<u8>) -> String {
+fn glob_pattern_from_path_buf(path_buf: &std::path::PathBuf, depth: Option<u8>) -> String {
     // Return a glob pattern for every file in a directory (recursively) from a PathBuf, assumed to
     // be a directory
 
-    match *depth {
+    match depth {
         None => format!("{}{}", path_buf.as_path().to_str().unwrap(), "/**/*"),
         Some(d) => {
             let mut output = String::from(path_buf.as_path().to_str().unwrap());
@@ -32,7 +32,7 @@ fn glob_pattern_from_path_buf(path_buf: &std::path::PathBuf, depth: &Option<u8>)
     }
 }
 
-fn get_dir_listing(dir_path: &std::path::PathBuf, depth: &Option<u8>) -> Vec<std::path::PathBuf> {
+fn get_dir_listing(dir_path: &std::path::PathBuf, depth: Option<u8>) -> Vec<std::path::PathBuf> {
     // Return a full recursive directory listing
 
     let absolute_dir_path = std::fs::canonicalize(dir_path).unwrap();
@@ -81,12 +81,12 @@ fn dir_listing_to_string(dir_listing: &Vec<std::path::PathBuf>) -> String {
     string
 }
 
-fn print_dir_diff(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: &bool) {
+fn print_dir_diff(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: bool) {
     for diff_fragment in dir_diff {
         match diff_fragment {
             diff::Result::Left(path) => println!("{} {}", "-".red(), path.red()),
             diff::Result::Both(path, _) => {
-                if !*hide_similarities {
+                if !hide_similarities {
                     println!(" {}", path)
                 }
             }
@@ -123,15 +123,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // error if directories do not exist
     check_cli_args(&args)?;
 
-    let source_dir_listing = get_dir_listing(&args.source_dir, &args.depth);
-    let target_dir_listing = get_dir_listing(&args.target_dir, &args.depth);
+    let source_dir_listing = get_dir_listing(&args.source_dir, args.depth);
+    let target_dir_listing = get_dir_listing(&args.target_dir, args.depth);
 
     let source_dir_listing_string = dir_listing_to_string(&source_dir_listing);
     let target_dir_listing_string = dir_listing_to_string(&target_dir_listing);
 
     let dir_diff = diff::lines(&source_dir_listing_string, &target_dir_listing_string);
 
-    print_dir_diff(&dir_diff, &args.quiet);
+    print_dir_diff(&dir_diff, args.quiet);
 
     Ok(())
 }
