@@ -12,6 +12,8 @@ struct CliArgs {
     quiet: bool,
     #[clap(short, long)]
     depth: Option<u8>,
+    #[clap(long)]
+    no_color: bool,
 }
 
 fn glob_pattern_from_path_buf(path_buf: &std::path::PathBuf, depth: Option<u8>) -> String {
@@ -83,17 +85,52 @@ fn dir_listing_to_string(dir_listing: &Vec<std::path::PathBuf>) -> String {
     string
 }
 
-fn print_dir_diff(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: bool) {
+fn print_dir_diff(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: bool, color: bool) {
     for diff_fragment in dir_diff {
         match diff_fragment {
-            diff::Result::Left(path) => println!("{} {}", "-".red(), path.red()),
-            diff::Result::Both(path, _) => {
-                if !hide_similarities {
-                    println!(" {}", path)
+            diff::Result::Left(path) => {
+                if color {
+                    println!("{} {}", "-".red(), path.red());
+                } else {
+                    println!("- {}", path);
                 }
             }
-            diff::Result::Right(path) => println!("{} {}", "+".green(), path.green()),
+            diff::Result::Both(path, _) => {
+                if !hide_similarities {
+                    println!(" {}", path);
+                }
+            }
+            diff::Result::Right(path) => {
+                if color {
+                    println!("{} {}", "+".green(), path.green());
+                } else {
+                    println!("+ {}", path);
+                }
+            }
         }
+    }
+}
+
+fn print_diff_summary(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: bool) {
+    let mut num_removed = 0;
+    let mut num_similar = 0;
+    let mut num_added = 0;
+
+    for diff_fragment in dir_diff {
+        match diff_fragment {
+            diff::Result::Left(_) => num_removed += 1,
+            diff::Result::Both(_, _) => num_similar += 1,
+            diff::Result::Right(_) => num_added += 1,
+        }
+    }
+
+    if hide_similarities {
+        println!("{} removed, {} added", num_removed, num_added);
+    } else {
+        println!(
+            "{} similar, {} removed, {} added",
+            num_similar, num_removed, num_added
+        );
     }
 }
 
@@ -133,7 +170,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let dir_diff = diff::lines(&source_dir_listing_string, &target_dir_listing_string);
 
-    print_dir_diff(&dir_diff, args.quiet);
+    print_dir_diff(&dir_diff, args.quiet, !args.no_color);
+    print_diff_summary(&dir_diff, args.quiet);
 
     Ok(())
 }
