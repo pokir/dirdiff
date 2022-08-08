@@ -138,7 +138,7 @@ fn get_dir_diff(
 
             target_index += 1;
         } else {
-            // the file paths are equal (relative to the parent directory)
+            // the source and target file paths are equal (relative to the parent directory)
 
             let source_file_path: std::path::PathBuf =
                 [source_dir, &source_dir_listing[source_index]]
