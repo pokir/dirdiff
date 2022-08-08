@@ -15,7 +15,7 @@ struct CliArgs {
     #[clap(long)]
     no_color: bool,
     #[clap(short, long)]
-    compare_content: bool,
+    files: bool, // whether to compare file contents
 }
 
 #[derive(Debug)]
@@ -30,8 +30,8 @@ enum DirDiff<T> {
 
 #[derive(Debug)]
 enum DirDiffFileContent {
-    Unchanged, // file contents are the same
-    Changed,   // file contents are different
+    Unchanged, // file content are the same
+    Changed,   // file content are different
 }
 
 fn check_cli_args(args: &CliArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -112,13 +112,12 @@ fn get_dir_listing(dir_path: &std::path::PathBuf, depth: Option<u8>) -> Vec<std:
 fn get_dir_diff(
     source_dir_listing: &Vec<std::path::PathBuf>,
     target_dir_listing: &Vec<std::path::PathBuf>,
-    compare_file_contents: bool,
+    source_dir: &std::path::PathBuf,
+    target_dir: &std::path::PathBuf,
+    compare_file_content: bool,
 ) -> Vec<DirDiff<std::path::PathBuf>> {
     // Return diff between two directories
     // NOTE: this function assumes both directory listings are sorted by unicode values
-
-    println!("{:?}", source_dir_listing);
-    println!("{:?}", target_dir_listing);
 
     let longest_listing = std::cmp::max(source_dir_listing.len(), target_dir_listing.len());
 
@@ -131,34 +130,65 @@ fn get_dir_diff(
     // go through both arrays at the same time, to ensure O(n) time
     for _ in 0..longest_listing {
         if source_dir_listing[source_index] < target_dir_listing[target_index] {
-            println!(
-                "{:?} comes before {:?}",
-                source_dir_listing[source_index], target_dir_listing[target_index]
-            );
-
             diff_output.push(DirDiff::Removed(source_dir_listing[source_index].clone()));
 
             source_index += 1;
         } else if source_dir_listing[source_index] > target_dir_listing[target_index] {
-            println!(
-                "{:?} comes after {:?}",
-                source_dir_listing[source_index], target_dir_listing[target_index]
-            );
-
             diff_output.push(DirDiff::Added(target_dir_listing[target_index].clone()));
 
             target_index += 1;
         } else {
-            println!(
-                "{:?} is equal to {:?}",
-                source_dir_listing[source_index], target_dir_listing[target_index]
-            );
+            // the file paths are equal (relative to the parent directory)
 
-            // TODO: if file content checking is used, do it here
-            diff_output.push(DirDiff::Similar(
-                source_dir_listing[source_index].clone(),
-                None, // TODO: no file content checking used yet
-            ));
+            let source_file_path: std::path::PathBuf =
+                [source_dir, &source_dir_listing[source_index]]
+                    .iter()
+                    .collect();
+
+            let target_file_path: std::path::PathBuf =
+                [target_dir, &target_dir_listing[target_index]]
+                    .iter()
+                    .collect();
+
+            if compare_file_content && source_file_path.is_file() != target_file_path.is_file() {
+                // if two paths are the same, but one is a file and the other a directory, then it
+                // is considered CHANGED
+                diff_output.push(DirDiff::Similar(
+                    source_dir_listing[source_index].clone(),
+                    Some(DirDiffFileContent::Changed),
+                ));
+            } else if compare_file_content
+                && source_file_path.is_file()
+                && target_file_path.is_file()
+            {
+                // read file contents
+                let source_file_content =
+                    std::fs::read_to_string::<std::path::PathBuf>(source_file_path)
+                        .expect("Unable to read file");
+
+                let target_file_content =
+                    std::fs::read_to_string::<std::path::PathBuf>(target_file_path)
+                        .expect("Unable to read file");
+
+                // compare file contents and add to diff
+                if source_file_content == target_file_content {
+                    diff_output.push(DirDiff::Similar(
+                        source_dir_listing[source_index].clone(),
+                        Some(DirDiffFileContent::Unchanged),
+                    ));
+                } else {
+                    diff_output.push(DirDiff::Similar(
+                        source_dir_listing[source_index].clone(),
+                        Some(DirDiffFileContent::Changed),
+                    ));
+                }
+            } else {
+                // don't check file content
+                diff_output.push(DirDiff::Similar(
+                    source_dir_listing[source_index].clone(),
+                    None,
+                ));
+            }
 
             source_index += 1;
             target_index += 1;
@@ -206,38 +236,63 @@ fn print_dir_diff(
                     println!("+ {}", path.to_str().unwrap());
                 }
             }
-            DirDiff::Similar(path, _) => {
-                // TODO: print differently if it is similar changed/unchanged
+            DirDiff::Similar(path, file_content_similarity) => {
                 if !hide_similarities {
-                    println!(" {}", path.to_str().unwrap());
+                    match file_content_similarity {
+                        None => {
+                            println!("  {}", path.to_str().unwrap());
+                        }
+                        Some(DirDiffFileContent::Unchanged) => {
+                            println!(" {}", path.to_str().unwrap());
+                        }
+                        Some(DirDiffFileContent::Changed) => {
+                            println!("{} {}", "~".yellow(), path.to_str().unwrap().yellow());
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-fn print_diff_summary(dir_diff: &Vec<DirDiff<std::path::PathBuf>>, hide_similarities: bool) {
+fn print_diff_summary(
+    dir_diff: &Vec<DirDiff<std::path::PathBuf>>,
+    hide_similarities: bool,
+    compare_file_content: bool,
+) {
     let mut num_removed = 0;
-    let mut num_similar = 0;
     let mut num_added = 0;
+    let mut num_similar = 0;
+    let mut num_changed = 0;
+    let mut num_unchanged = 0;
 
-    // TODO: count number of similar changed and similar unchanged as well
     for diff_fragment in dir_diff {
         match diff_fragment {
             DirDiff::Removed(_) => num_removed += 1,
             DirDiff::Added(_) => num_added += 1,
-            DirDiff::Similar(_, _) => num_similar += 1,
+            DirDiff::Similar(_, None) => num_similar += 1,
+            DirDiff::Similar(_, Some(DirDiffFileContent::Unchanged)) => num_unchanged += 1,
+            DirDiff::Similar(_, Some(DirDiffFileContent::Changed)) => num_changed += 1,
         }
     }
 
-    if hide_similarities {
-        println!("{} removed, {} added", num_removed, num_added);
-    } else {
-        println!(
-            "{} similar, {} removed, {} added",
-            num_similar, num_removed, num_added
-        );
+    let mut summary = String::new();
+
+    summary.push_str(&format!("{} removed, {} added", num_removed, num_added));
+
+    // also add summary for similarities
+    if !hide_similarities {
+        summary.push_str(&format!(", {} similar", num_similar));
+
+        if compare_file_content {
+            summary.push_str(&format!(
+                ", {} files changed, {} files unchanged",
+                num_changed, num_unchanged
+            ));
+        }
     }
+
+    println!("{}", summary);
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -254,11 +309,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dir_diff = get_dir_diff(
         &source_dir_listing,
         &target_dir_listing,
-        args.compare_content,
+        &args.source_dir,
+        &args.target_dir,
+        args.files,
     );
 
     print_dir_diff(&dir_diff, args.quiet, !args.no_color);
-    print_diff_summary(&dir_diff, args.quiet);
+    print_diff_summary(&dir_diff, args.quiet, args.files);
 
     Ok(())
 }
