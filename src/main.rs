@@ -14,6 +14,24 @@ struct CliArgs {
     depth: Option<u8>,
     #[clap(long)]
     no_color: bool,
+    #[clap(short, long)]
+    compare_content: bool,
+}
+
+#[derive(Debug)]
+enum DirDiff<T> {
+    Removed(T), // path is only in source
+    Added(T),   // path is only in target
+
+    Similar(T, Option<DirDiffFileContent>),
+    // path is both source and target; if Option is None, then either the path points to a directory
+    // or file content checking is disabled
+}
+
+#[derive(Debug)]
+enum DirDiffFileContent {
+    Unchanged, // file contents are the same
+    Changed,   // file contents are different
 }
 
 fn check_cli_args(args: &CliArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -91,58 +109,124 @@ fn get_dir_listing(dir_path: &std::path::PathBuf, depth: Option<u8>) -> Vec<std:
     paths
 }
 
-fn dir_listing_to_string(dir_listing: &Vec<std::path::PathBuf>) -> String {
-    // Return the directory listing in string form
+fn get_dir_diff(
+    source_dir_listing: &Vec<std::path::PathBuf>,
+    target_dir_listing: &Vec<std::path::PathBuf>,
+    compare_file_contents: bool,
+) -> Vec<DirDiff<std::path::PathBuf>> {
+    // Return diff between two directories
+    // NOTE: this function assumes both directory listings are sorted by unicode values
 
-    let mut string = String::new();
+    println!("{:?}", source_dir_listing);
+    println!("{:?}", target_dir_listing);
 
-    // put each path on a new line, making sure there is no trailing "\n" at the end
-    string.push_str(dir_listing[0].to_str().unwrap());
+    let longest_listing = std::cmp::max(source_dir_listing.len(), target_dir_listing.len());
 
-    for i in 1..dir_listing.len() {
-        string.push_str("\n");
-        string.push_str(dir_listing[i].to_str().unwrap());
+    // indexes for both vectors
+    let mut source_index = 0;
+    let mut target_index = 0;
+
+    let mut diff_output = Vec::<DirDiff<std::path::PathBuf>>::new();
+
+    // go through both arrays at the same time, to ensure O(n) time
+    for _ in 0..longest_listing {
+        if source_dir_listing[source_index] < target_dir_listing[target_index] {
+            println!(
+                "{:?} comes before {:?}",
+                source_dir_listing[source_index], target_dir_listing[target_index]
+            );
+
+            diff_output.push(DirDiff::Removed(source_dir_listing[source_index].clone()));
+
+            source_index += 1;
+        } else if source_dir_listing[source_index] > target_dir_listing[target_index] {
+            println!(
+                "{:?} comes after {:?}",
+                source_dir_listing[source_index], target_dir_listing[target_index]
+            );
+
+            diff_output.push(DirDiff::Added(target_dir_listing[target_index].clone()));
+
+            target_index += 1;
+        } else {
+            println!(
+                "{:?} is equal to {:?}",
+                source_dir_listing[source_index], target_dir_listing[target_index]
+            );
+
+            // TODO: if file content checking is used, do it here
+            diff_output.push(DirDiff::Similar(
+                source_dir_listing[source_index].clone(),
+                None, // TODO: no file content checking used yet
+            ));
+
+            source_index += 1;
+            target_index += 1;
+        }
+
+        // add the remaining items to the dir diff if it reached the end of one dir listing
+        if source_index >= source_dir_listing.len() {
+            // add the remaining ADDED items of the other dir listing
+            for i in target_index..target_dir_listing.len() {
+                diff_output.push(DirDiff::Added(target_dir_listing[i].clone()));
+            }
+
+            break;
+        } else if target_index >= target_dir_listing.len() {
+            // add the remaining REMOVED items of the other dir listing
+            for i in source_index..source_dir_listing.len() {
+                diff_output.push(DirDiff::Removed(source_dir_listing[i].clone()));
+            }
+
+            break;
+        }
     }
 
-    string
+    diff_output
 }
 
-fn print_dir_diff(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: bool, color: bool) {
+fn print_dir_diff(
+    dir_diff: &Vec<DirDiff<std::path::PathBuf>>,
+    hide_similarities: bool,
+    color: bool,
+) {
     for diff_fragment in dir_diff {
         match diff_fragment {
-            diff::Result::Left(path) => {
+            DirDiff::Removed(path) => {
                 if color {
-                    println!("{} {}", "-".red(), path.red());
+                    println!("{} {}", "-".red(), path.to_str().unwrap().red());
                 } else {
-                    println!("- {}", path);
+                    println!("- {}", path.to_str().unwrap());
                 }
             }
-            diff::Result::Both(path, _) => {
+            DirDiff::Added(path) => {
+                if color {
+                    println!("{} {}", "+".green(), path.to_str().unwrap().green());
+                } else {
+                    println!("+ {}", path.to_str().unwrap());
+                }
+            }
+            DirDiff::Similar(path, _) => {
+                // TODO: print differently if it is similar changed/unchanged
                 if !hide_similarities {
-                    println!(" {}", path);
-                }
-            }
-            diff::Result::Right(path) => {
-                if color {
-                    println!("{} {}", "+".green(), path.green());
-                } else {
-                    println!("+ {}", path);
+                    println!(" {}", path.to_str().unwrap());
                 }
             }
         }
     }
 }
 
-fn print_diff_summary(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: bool) {
+fn print_diff_summary(dir_diff: &Vec<DirDiff<std::path::PathBuf>>, hide_similarities: bool) {
     let mut num_removed = 0;
     let mut num_similar = 0;
     let mut num_added = 0;
 
+    // TODO: count number of similar changed and similar unchanged as well
     for diff_fragment in dir_diff {
         match diff_fragment {
-            diff::Result::Left(_) => num_removed += 1,
-            diff::Result::Both(_, _) => num_similar += 1,
-            diff::Result::Right(_) => num_added += 1,
+            DirDiff::Removed(_) => num_removed += 1,
+            DirDiff::Added(_) => num_added += 1,
+            DirDiff::Similar(_, _) => num_similar += 1,
         }
     }
 
@@ -167,9 +251,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let target_dir_listing = get_dir_listing(&args.target_dir, args.depth);
 
     // get diff
-    let source_dir_listing_string = dir_listing_to_string(&source_dir_listing);
-    let target_dir_listing_string = dir_listing_to_string(&target_dir_listing);
-    let dir_diff = diff::lines(&source_dir_listing_string, &target_dir_listing_string);
+    let dir_diff = get_dir_diff(
+        &source_dir_listing,
+        &target_dir_listing,
+        args.compare_content,
+    );
 
     print_dir_diff(&dir_diff, args.quiet, !args.no_color);
     print_diff_summary(&dir_diff, args.quiet);
