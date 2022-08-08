@@ -16,6 +16,28 @@ struct CliArgs {
     no_color: bool,
 }
 
+fn check_cli_args(args: &CliArgs) -> Result<(), Box<dyn std::error::Error>> {
+    // check if paths exist
+    if !args.source_dir.exists() {
+        return Err(format!("{} does not exist", args.source_dir.display()).into());
+    }
+
+    if !args.target_dir.exists() {
+        return Err(format!("{} does not exist", args.target_dir.display()).into());
+    }
+
+    // check if paths are directories
+    if !args.source_dir.is_dir() {
+        return Err(format!("{} is not a directory", args.source_dir.display()).into());
+    }
+
+    if !args.target_dir.is_dir() {
+        return Err(format!("{} is not a directory", args.target_dir.display()).into());
+    }
+
+    Ok(())
+}
+
 fn glob_pattern_from_path_buf(path_buf: &std::path::PathBuf, depth: Option<u8>) -> String {
     // Return a glob pattern for every file in a directory (recursively) from a PathBuf, assumed to
     // be a directory
@@ -132,28 +154,6 @@ fn print_diff_summary(dir_diff: &Vec<diff::Result<&str>>, hide_similarities: boo
             num_similar, num_removed, num_added
         );
     }
-}
-
-fn check_cli_args(args: &CliArgs) -> Result<(), Box<dyn std::error::Error>> {
-    // check if paths exist
-    if !args.source_dir.exists() {
-        return Err(format!("{} does not exist", args.source_dir.display()).into());
-    }
-
-    if !args.target_dir.exists() {
-        return Err(format!("{} does not exist", args.target_dir.display()).into());
-    }
-
-    // check if paths are directories
-    if !args.source_dir.is_dir() {
-        return Err(format!("{} is not a directory", args.source_dir.display()).into());
-    }
-
-    if !args.target_dir.is_dir() {
-        return Err(format!("{} is not a directory", args.target_dir.display()).into());
-    }
-
-    Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
