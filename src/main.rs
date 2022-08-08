@@ -9,7 +9,7 @@ struct CliArgs {
     #[clap(parse(from_os_str))]
     target_dir: std::path::PathBuf,
     #[clap(short, long)]
-    quiet: bool,
+    quiet: bool, // don't show similarities (and changed/unchanged files if -f option is given)
     #[clap(short, long)]
     depth: Option<u8>,
     #[clap(long)]
