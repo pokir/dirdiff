@@ -162,12 +162,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // error if directories do not exist
     check_cli_args(&args)?;
 
+    // list both directories
     let source_dir_listing = get_dir_listing(&args.source_dir, args.depth);
     let target_dir_listing = get_dir_listing(&args.target_dir, args.depth);
 
+    // get diff
     let source_dir_listing_string = dir_listing_to_string(&source_dir_listing);
     let target_dir_listing_string = dir_listing_to_string(&target_dir_listing);
-
     let dir_diff = diff::lines(&source_dir_listing_string, &target_dir_listing_string);
 
     print_dir_diff(&dir_diff, args.quiet, !args.no_color);
