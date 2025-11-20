@@ -6,6 +6,8 @@ CLI tool to compare the contents of two directories.
 
 Cargo needs to be installed.
 
+Then run this:
+
 ```sh
 cargo install --git https://github.com/pokir/dirdiff
 ```
